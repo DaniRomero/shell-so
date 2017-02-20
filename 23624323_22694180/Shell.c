@@ -1,0 +1,488 @@
+#include "headers.h"
+#include <unistd.h>
+
+typedef struct _cola{
+	char Array[10][80];
+	int pos;
+	int vuelta;
+}cola;
+
+char *comando;
+char *respaldo;
+char *dir_set;
+char *bpipe, *apipe;
+char *path;
+char *set_path;
+char *args[10];
+char *storePath[512];
+char *storeOrder[512];
+char *usar;
+int cierto=1;
+int we=0;
+int dirs;
+int cant_PATH;
+int cant_ORDER;
+FILE *archivo_times;
+static clock_t c0;
+static clock_t c1;
+static struct tms st_cpu;
+static struct tms en_cpu;
+cola ultC;
+
+void ejecutarOrden(/*int a*/);
+int AnalizarOrden();
+void obtenerDirectorios();
+void inicializar();
+int buscarPath();
+
+void display(){
+	int i,cont=0;
+	printf("\nEntre al historial: \n");
+	if(ultC.vuelta==0){
+		for(i=ultC.pos;i>=0;i--) {
+			printf("Comando %i: %s\n", cont, ultC.Array[i]);
+			cont+=1;
+		}
+	}else{
+		for(i=ultC.pos;i>=0;i--) {
+			printf("Comando %i: %s\n",cont,ultC.Array[i]);
+			cont+=1;
+		}
+		cont=ultC.pos+1;
+		for(i=9;i>ultC.pos;i--) {
+			printf("Comando %i: %s\n",cont,ultC.Array[i]); 
+			cont+=1;
+		}
+	}
+	gets(comando);
+	if ( strcmp(comando, "r 0") == 0){
+		printf("Ejecutare el comando 0\n");
+		strcpy(comando, ultC.Array[0]);
+		printf("%s\n", ultC.Array[0]);
+	}else if (strcmp(comando, "r 1")== 0){
+		printf("Ejecutare el comando 1\n");
+		strcpy(comando, ultC.Array[1]);
+		printf("%s\n", ultC.Array[1]);
+	}else if (strcmp(comando, "r 2")== 0){
+		printf("Ejecutare el comando 2\n");
+		strcpy(comando, ultC.Array[2]);
+		printf("%s\n", ultC.Array[2]);
+	}else if (strcmp(comando, "r 3")== 0){
+		printf("Ejecutare el comando 3\n");
+		strcpy(comando, ultC.Array[3]);
+		printf("%s\n", ultC.Array[3]);
+	}else if (strcmp(comando, "r 4")== 0){
+		printf("Ejecutare el comando 4\n");
+		strcpy(comando, ultC.Array[4]);
+		printf("%s\n", ultC.Array[4]);
+	}else if (strcmp(comando, "r 5")== 0){
+		printf("Ejecutare el comando 5\n");
+		strcpy(comando, ultC.Array[5]);
+		printf("%s\n", ultC.Array[5]);
+	}else if (strcmp(comando, "r 6")== 0){
+		printf("Ejecutare el comando 6\n");
+		strcpy(comando, ultC.Array[6]);
+		printf("%s\n", ultC.Array[6]);
+	}else if (strcmp(comando, "r 7")== 0){
+		printf("Ejecutare el comando 7\n");
+		strcpy(comando, ultC.Array[7]);
+		printf("%s\n", ultC.Array[7]);
+	}else if (strcmp(comando, "r 8")== 0){
+		printf("Ejecutare el comando 8\n");
+		strcpy(comando, ultC.Array[8]);
+		printf("%s\n", ultC.Array[8]);
+	}else if (strcmp(comando, "r 9") == 0 || strcmp(comando, "r") ==0){
+		printf("Ejecutare el comando 9\n");
+		strcpy(comando, ultC.Array[9]);
+		printf("%s\n", ultC.Array[9]);
+	}else if (strcmp(comando, "exit")==0){
+		printf("Saliendo...\n"); 
+		return;
+	}
+	/**/
+	inicializar();
+	pid_t pid;
+	pid = fork();
+	if(pid==0){
+		char *pch, *str, *execvem[10];
+		int j=0;
+		str=comando;
+		pch = (char *) malloc(1*sizeof(char) );
+		pch=strtok(str, " ");
+		while(pch!=NULL){
+			execvem[j]=pch;
+			j=j+1;
+			pch = strtok(NULL, " ");
+		}
+		cant_PATH=buscarPath();
+		for (i=0;i<cant_PATH;i++){
+			str = NULL;
+			str = storePath[i];
+			str = strcat(str, "/");
+			str = strcat(str, comando);
+			if(access(str,/* F_OK && R_OK &&*/ X_OK)==0){
+				char aux[1024];
+				archivo_times = fopen("times.txt", "rw+");
+				while(!feof(archivo_times)){		
+					fscanf(archivo_times,"%s", aux);
+				}
+		fprintf(archivo_times, "%s Tardó\n\t Real time: 0m%fs\n\t User time: 0m%fs\n\t Sys time: 0m%fs\n", 
+					comando,
+				(float)(c1-c0)/CLOCKS_PER_SEC,
+				(float)(en_cpu.tms_utime - st_cpu.tms_utime)/CLOCKS_PER_SEC,												 
+					(float)(en_cpu.tms_stime - st_cpu.tms_stime)/CLOCKS_PER_SEC );
+	 			fclose(archivo_times);
+	 			execv(str,execvem);
+			}
+		}
+	}else{
+		wait(NULL);
+	}
+	/**/
+	return;
+}
+
+void inicializarC(cola* A){
+	A->pos=-1;
+	A->vuelta=0;
+}
+
+void encolar(cola* A, char enc[80]){
+	if(A->pos==9){
+		A->pos=0;
+		A->vuelta=1;
+	}else{
+		A->pos=A->pos+1;
+	}
+	strcpy(A->Array[A->pos], enc);
+}
+
+int AnalizarOrden(){
+	char *pch, *str;
+	int i=0;
+	str=comando;
+	pch = (char *) malloc(1*sizeof(char) );
+	pch=strtok(str, " ");
+	while(pch!=NULL){
+		storeOrder[i]=pch;
+		i=i+1;
+		pch = strtok(NULL, " ");
+	}
+	return i;
+}
+
+void ejecutarOrden(){
+	if (we>0) inicializar();
+	int i,aux;
+	char *aux2;
+	aux=1;
+	for (i=0;i<cant_PATH;i++){
+		aux2 = NULL;
+		aux2 = storePath[i];
+		aux2 = strcat(aux2, "/");
+		aux2 = strcat(aux2, comando);
+		if(access(aux2,/* F_OK && R_OK &&*/ X_OK)==0){
+			for (aux=0;aux<dirs;aux++){
+				args[aux]=(char *)malloc(512*sizeof(char *));
+				args[aux]=storeOrder[aux];
+				//printf("%s\n", args[aux]);
+			}	
+			c1 = times(&en_cpu);
+			/***************************/
+			char aux[1024];
+			archivo_times = fopen("times.in", "rw+");
+			while(!feof(archivo_times)){		
+				fscanf(archivo_times,"%s", aux);
+			}
+fprintf(archivo_times, "%s Tardó\n\t Real time: 0m%.3fs\n\t User time: 0m%.3fs\n\t Sys time: 0m%.3fs\n", 
+				comando,
+				(float)(c1-c0)/sysconf(_SC_CLK_TCK),
+		(float)(en_cpu.tms_utime - st_cpu.tms_utime)/sysconf(_SC_CLK_TCK),												 
+				(float)(en_cpu.tms_stime - st_cpu.tms_stime)/sysconf(_SC_CLK_TCK) );
+ 			fclose(archivo_times);
+ 			/***************************/
+ 			we++;
+			execv(aux2, args);
+		}
+	}
+	if(aux==1) printf("Bash: Command not found\n");
+}
+
+int ejecutarCD(char *directorios[512], char *comando_cd[1000], int a){
+	int aux;
+	if (strcmp(comando_cd[0],"cd")==0){
+		if (comando_cd[1]==NULL || strcmp(comando_cd[1],"..")==0){
+			if (comando_cd[1]==NULL)
+				printf("Bash: Por favor introduzca un directorio.\n");
+			else{
+				aux=chdir(".."); 
+				//perror("");
+			}
+		}else if (comando_cd[2]!=0);
+		else{
+			aux=chdir(comando_cd[1]);
+			if (aux){ perror("Bash"); return -1;}
+			return 0;
+		}
+	}
+	return 0;
+}
+
+int analizarPath(char *a){
+	char *pch, *str;
+	pch = (char *) malloc(sizeof(char) );
+	str = a;
+	pch=strtok(str, ":");
+	int i=0;
+	while(pch!=NULL){
+		strcpy(storePath[i],pch);
+		i=i+1;
+		pch = strtok(NULL, ":");
+	}
+	return i;
+}
+
+void obtenerDirectorios(char *directorios[512]){
+	char *aux, *pch, *str;
+	aux=(char *)malloc(256*sizeof(char *));
+	aux=getcwd(aux, 256);
+	str = aux;
+	pch = strtok(str, "/");
+	int i=0;
+	while (pch!=NULL){
+		directorios[i]=(char *)malloc(50*sizeof(char *));
+		directorios[i]=pch;
+		i=i+1;
+		pch = strtok(NULL, "/");
+	}
+	dirs=i;
+}
+
+int buscarPath(){
+	//path=getenv("PATH");
+	path=(char *)malloc(4026*sizeof(char *));
+	strcpy(path, getenv("PATH") );
+	int a = analizarPath(path);
+	return a;
+}
+
+void mostrarPath(){
+	int i; 
+	for(i=0;i<cant_PATH;i++) printf("%s\n",storePath[i]);
+}
+
+void executable(){
+	char *exev[]={NULL};
+	execv(comando, exev);
+}
+
+void hijo1(int fds[2], char *A){
+	/****/
+	char *pch, *str, *paraexec[10];
+	int i=0, ok=1;
+	strcpy(comando, A);
+	/****/
+   close(fds[0]);
+   dup2(fds[1], STDOUT_FILENO);
+   /**/
+	str=comando;
+	pch = (char *) malloc(1*sizeof(char) );
+	pch=strtok(str, " ");
+	while(pch!=NULL){
+		paraexec[i]=pch;
+		i=i+1;
+		pch = strtok(NULL, " ");
+	}
+	cant_PATH=buscarPath();
+	for (i=0;i<cant_PATH;i++){
+		str = NULL;
+		str = storePath[i];
+		str = strcat(str, "/");
+		str = strcat(str, comando);
+		if(access(str,/* F_OK && R_OK &&*/ X_OK)==0){
+			char aux[1024];
+			archivo_times = fopen("times.in", "rw+");
+			while(!feof(archivo_times)){		
+				fscanf(archivo_times,"%s", aux);
+			}
+			c1 = times(&en_cpu);
+fprintf(archivo_times, "%s Tardó\n\t Real time: 0m%.3fs\n\t User time: 0m%.3fs\n\t Sys time: 0m%.3fs\n", 
+				comando,
+			(float)(c1-c0)/CLOCKS_PER_SEC,
+			(float)(en_cpu.tms_utime - st_cpu.tms_utime)/CLOCKS_PER_SEC,												 
+				(float)(en_cpu.tms_stime - st_cpu.tms_stime)/CLOCKS_PER_SEC );
+ 			fclose(archivo_times);
+ 			execv(str,paraexec);
+		}
+	}
+	if (ok) perror("");
+   /**/
+	//execlp("ls", "ls", "-la", NULL);
+	//char *argsh1[]={"ls", "-la"};
+	//execv("/bin/ls", argsh1);
+}
+ 
+void hijo2(int fds[2], char *B){
+	/****/
+	char *pch, *str, *paraexec[10];
+	int i=0, ok=1;
+	strcpy(comando, B);
+	/****/
+	close(fds[1]);
+	dup2(fds[0], STDIN_FILENO);
+	   /**/
+	str=comando;
+	pch = (char *) malloc(1*sizeof(char) );
+	pch=strtok(str, " ");
+	while(pch!=NULL){
+		paraexec[i]=pch;
+		i=i+1;
+		pch = strtok(NULL, " ");
+	}
+	cant_PATH=buscarPath();
+	for (i=0;i<cant_PATH;i++){
+		str = NULL;
+		str = storePath[i];
+		str = strcat(str, "/");
+		str = strcat(str, comando);
+		if(access(str,/* F_OK && R_OK &&*/ X_OK)==0){
+			char aux[1024];
+			archivo_times = fopen("times.in", "rw+");
+			while(!feof(archivo_times)){		
+				fscanf(archivo_times,"%s", aux);
+			}
+			c1 = times(&en_cpu);
+	fprintf(archivo_times, "%s Tardó\n\t Real time: 0m%.3fs\n\t User time: 0m%.3fs\n\t Sys time: 0m%.3fs\n", 
+				comando,
+			(float)(c1-c0)/CLOCKS_PER_SEC,
+			(float)(en_cpu.tms_utime - st_cpu.tms_utime)/CLOCKS_PER_SEC,												 
+			(float)(en_cpu.tms_stime - st_cpu.tms_stime)/CLOCKS_PER_SEC );
+ 			fclose(archivo_times);
+ 			execv(str,paraexec);
+		}
+	}
+	if (ok) perror("");
+   /**/
+	//execlp("grep", "grep", "^d", NULL);
+	//char *argsh2[]={"grep", "^d"};
+	//execv("/bin/grep", argsh2);	
+}
+
+void inicializar(){
+	int use;
+ 	for (use=1; use<cant_ORDER; use++) bzero(args[use],10);
+}
+
+int main(){
+	signal(SIGINT, display);
+	char *aux4pipes;
+	char array4pipes[1000];
+	char *directorios[512];
+	comando = (char *)malloc(4026*sizeof(char *) );
+	respaldo = (char *)malloc(4026*sizeof(char *) );
+	char *strstr1 =(char *)malloc(512*sizeof(char *));
+	int qk;
+	for (qk=0; qk<50; qk++){ 
+		storePath[qk]=(char *)malloc(50*sizeof(char *));
+	}
+	int pid, ret;
+	inicializarC(&ultC);
+	int i=0;
+	int verdad=1;
+	while (verdad){	
+		mostrar_prompt();
+		gets(comando);
+		encolar(&ultC,comando);
+		pid = fork();
+		if (pid == 0){
+			strcpy(respaldo, comando);
+			c0=clock();
+			strcpy(array4pipes, comando);
+			cant_PATH=buscarPath();
+			obtenerDirectorios(directorios);		
+			cierto=0;
+			cant_ORDER=AnalizarOrden(); 
+			c0	=	times(&st_cpu);
+/********/
+			if(strlen(comando)>2){
+				strcpy(strstr1,strndup(comando,2)); 
+				//printf("%s\n", str);
+				if (strcmp(strstr1, "./")==0){
+					strcpy(strstr1, strndup(comando+2,strlen(comando)));
+					//printf("%s\n", str);
+					strcpy(comando, strstr1);
+					executable();
+				}
+			}
+/*******/
+			int i4pipes,cont4pipes=0;
+			int foundpipe = 0;
+			bpipe = (char *)malloc(100*sizeof(char *) );
+			apipe = (char *)malloc(100*sizeof(char *) );
+			for (i4pipes=0;i4pipes<strlen(array4pipes); i4pipes++){
+				aux4pipes = strndup(&array4pipes[i4pipes], 1);
+				if ( strcmp(aux4pipes, "|")==0 ){
+					cont4pipes++;
+					foundpipe = 1;
+				}
+				if (foundpipe==0)
+					strcat(bpipe, aux4pipes);
+				else
+					strcat(apipe, aux4pipes);
+			}
+			bpipe = strndup(bpipe, strlen(bpipe)-1); 
+			apipe = strndup(apipe+2, strlen(apipe) );
+			if ( cont4pipes >= 1 ){
+				int fds[cont4pipes+1];
+				if (pipe(fds) == -1) {
+                perror("fallo en pipe");
+                exit(EXIT_FAILURE);
+        		}
+        		for (i=0; i<cont4pipes+1; i++) {
+            	ret = fork();
+            	if (ret == 0) {
+               	/* estamos en alguno de los hijos. */
+                  switch(i) {
+               	   case 0:
+                     /* tratamiento hijo 1. */
+               	      hijo1(fds, bpipe);
+                   		exit(EXIT_SUCCESS);
+         	         case 1:
+                     /* tratamiento hijo 2. */
+                			hijo2(fds, apipe);
+                     	exit(EXIT_SUCCESS);
+						}
+					}else if (ret > 0) {
+                        /* tratamiento del padre */
+               }else if (ret == -1) {
+               	perror("fallo en fork");
+                  exit(EXIT_FAILURE);
+               }
+      	 	}
+		     	/* tratamiento del padre una vez lanzados ambos hijos. */
+		     	close(fds[0]);
+		     	close(fds[1]);
+	 			ret = wait(NULL);
+			   while (ret > 0) ret = wait(NULL);
+		
+		     	/* si hay error, ignoramos si no hay más hijos a esperar. */
+		     	if (ret == -1 && errno != ECHILD) {
+		      	perror("fallo en wait");
+		         exit(EXIT_FAILURE);
+		     	}
+			}else{
+/******/
+				if ( strcmp(comando, "exit") == 0 || strcmp(comando, "quit")==0) kill(pid,9);
+				else if ( strcmp(comando, "cd") == 0 ) ejecutarCD(directorios,storeOrder, dirs); 
+				else if ( strcmp(comando, "$PATH") == 0 ) mostrarPath();
+				else ejecutarOrden(cant_PATH);
+			}//Else of pipes
+		}else{
+			wait(&pid);
+		}
+		//int cleaning;
+		//for (cleaning=0; cleaning<10; cleaning++) args[cleaning]=NULL;
+		inicializar();
+	}
+	return 0;
+}
